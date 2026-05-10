@@ -1,3 +1,4 @@
+# arm segments lengths
 L1 = 5.0
 L2 = 3.0
 

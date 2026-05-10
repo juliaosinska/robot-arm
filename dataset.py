@@ -10,6 +10,7 @@ def generate_dataset():
 
     x, y = forward_kinematics(alpha, beta)
 
+    # stacking the (x, y) coordinates and (alpha, beta) angles into two separate arrays for training
     X = np.column_stack((x, y))
     Y = np.column_stack((alpha, beta))
 

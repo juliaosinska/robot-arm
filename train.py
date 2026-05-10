@@ -10,6 +10,7 @@ def train_model(model, X, Y, epochs, batch_size):
         random_state=42
     )
 
+    # additional check if the error is decreasing during validation (same as training)
     history = model.fit(
         X_train,
         Y_train,
