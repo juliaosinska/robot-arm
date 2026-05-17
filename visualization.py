@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from kinematics import forward_kinematics
+from config import L1, L2
+from matplotlib.animation import FuncAnimation
 
 def plot_training(history):
 
@@ -18,58 +20,114 @@ def plot_training(history):
     plt.show()
 
 
-def plot_error_map(model, X_max):
+def plot_interactive_arm(model, X_max):
 
-    # map 120 x 120 points in the workspace of the robot arm
+    fig, ax = plt.subplots(figsize=(8, 8))
+
+    limit = L1 + L2
+
     resolution = 120
 
-    # 8 and -8 because the arm can reach 8 units in any direction (L1 + L2 = 8)
-    x_space = np.linspace(-8, 8, resolution)
-    y_space = np.linspace(-8, 8, resolution)
+    x_space = np.linspace(-limit, limit, resolution)
+    y_space = np.linspace(-limit, limit, resolution)
 
     xx, yy = np.meshgrid(x_space, y_space)
 
-    # stacking the grid points into a 2D array of shape
     points = np.column_stack((xx.ravel(), yy.ravel()))
 
-    # normalization of the points to be between 0 and 1 (same as the output of the model)
-    points_norm = points / X_max
+    target = np.array([2.0, 2.0])
 
-    # predicting the angles for each point in the workspace using the trained model
-    predictions = model.predict(points_norm, verbose=0)
+    # heatmap
 
-    # converting the predicted angles back to radians (0 to pi)
-    alpha = predictions[:, 0] * np.pi
-    beta = predictions[:, 1] * np.pi
+    def compute_error_map(cursor):
 
-    # checking where the arm would be for each predicted angle
-    x_pred, y_pred = forward_kinematics(alpha, beta)
+        distances = np.sqrt(
+            (points[:, 0] - cursor[0]) ** 2 +
+            (points[:, 1] - cursor[1]) ** 2
+        )
 
-    # checking the distance between the predicted position of the arm and the actual point in the workspace
-    errors = np.sqrt(
-        (points[:, 0] - x_pred) ** 2 +
-        (points[:, 1] - y_pred) ** 2
-    )
+        points_norm = points / X_max
 
-    # reshaping the error array to match the grid shape for visualization
-    error_map = errors.reshape(resolution, resolution)
+        predictions = model.predict(points_norm)
 
-    plt.figure(figsize=(8, 8))
+        alpha = predictions[:, 0] * np.pi
+        beta = predictions[:, 1] * np.pi
 
-    # heatmap of the error across the workspace where warmer colors indicate higher errors
-    image = plt.imshow(
+        x_pred, y_pred = forward_kinematics(alpha, beta)
+
+        errors = np.sqrt(
+            (points[:, 0] - x_pred) ** 2 +
+            (points[:, 1] - y_pred) ** 2
+        )
+
+        weighted = errors * (1 + distances * 0.1)
+
+        return weighted.reshape(resolution, resolution)
+
+    error_map = compute_error_map(target)
+
+    image = ax.imshow(
         error_map,
-        extent=[-8, 8, -8, 8],
+        extent=[-limit, limit, -limit, limit],
         origin='lower',
         cmap='turbo'
     )
 
-    plt.colorbar(image, label='Błąd odległości')
+    plt.colorbar(image, ax=ax, label='Prediction error')
 
-    plt.xlabel('x')
-    plt.ylabel('y')
 
-    plt.title('Mapa błędu ramienia robota')
+    arm_line, = ax.plot([], [], 'o-', lw=4)
 
-    plt.tight_layout()
+    target_dot, = ax.plot([], [], 'rx', markersize=12)
+
+    ax.set_xlim(-limit, limit)
+    ax.set_ylim(-limit, limit)
+
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+
+    ax.set_title('Interactive Robot Arm')
+
+    ax.grid(True)
+
+
+    def update_arm(cursor):
+
+        x_norm = np.array([[cursor[0], cursor[1]]]) / X_max
+
+        prediction = model.predict(x_norm)[0]
+
+        alpha = prediction[0] * np.pi
+        beta = prediction[1] * np.pi
+
+        x1, y1, x2, y2 = forward_kinematics(alpha, beta, return_joints=True)
+
+        arm_line.set_data(
+            [0, x1, x2],
+            [0, y1, y2]
+        )
+
+        target_dot.set_data([cursor[0]], [cursor[1]])
+
+    update_arm(target)
+
+
+    def on_mouse_move(event):
+
+        if event.inaxes != ax:
+            return
+
+        target[0] = event.xdata
+        target[1] = event.ydata
+
+        update_arm(target)
+
+        new_error_map = compute_error_map(target)
+
+        image.set_data(new_error_map)
+
+        fig.canvas.draw_idle()
+
+    fig.canvas.mpl_connect('motion_notify_event', on_mouse_move)
+
     plt.show()

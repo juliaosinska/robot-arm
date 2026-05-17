@@ -3,7 +3,7 @@ from config import *
 from dataset import generate_dataset
 from model import create_model
 from train import train_model
-from visualization import plot_training, plot_error_map
+from visualization import plot_training, plot_interactive_arm
 
 # generating dataset
 X, Y = generate_dataset()
@@ -28,4 +28,4 @@ history, X_test, Y_test = train_model(
 
 # visualization
 plot_training(history)
-plot_error_map(model, X_max)
+plot_interactive_arm(model, X_max)

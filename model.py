@@ -1,6 +1,6 @@
 import numpy as np
 
-
+# activation functions and their derivatives
 def relu(x):
     return np.maximum(0.0, x)
 
@@ -34,6 +34,7 @@ def mse_loss_grad(y_pred, y_true):
     return 2.0 * (y_pred - y_true) / y_true.shape[0]
 
 
+# history class to store training history and metrics
 class History:
     def __init__(self, history):
         self.history = history
@@ -60,25 +61,34 @@ class DenseLayer:
         self.z = None
         self.output = None
 
+
     def _get_activation(self, name):
         if name == 'relu':
             return relu
+        
         if name == 'sigmoid':
             return sigmoid
+        
         return linear
+
 
     def _get_activation_grad(self, name):
         if name == 'relu':
             return relu_derivative
+        
         if name == 'sigmoid':
             return sigmoid_derivative
+        
         return linear_derivative
+
 
     def forward(self, inputs):
         self.input = np.asarray(inputs, dtype=float)
         self.z = self.input @ self.weights + self.bias
         self.output = self.activation(self.z)
+
         return self.output
+
 
     def backward(self, gradient, learning_rate, timestep):
         activation_grad = self.activation_grad(self.z, self.output)
@@ -106,27 +116,37 @@ class DenseLayer:
 class NeuralNetwork:
     def __init__(self, input_dim, layer_sizes, activations=None, learning_rate=0.001):
         layer_sizes = list(layer_sizes)
+
         if activations is None:
             activations = ['relu'] * len(layer_sizes)
             activations[-1] = 'sigmoid'
+
         if len(activations) != len(layer_sizes):
             raise ValueError('activations length must match layer_sizes length')
 
+
         self.layers = []
         current_dim = input_dim
+
         for size, activation in zip(layer_sizes, activations):
             self.layers.append(DenseLayer(current_dim, size, activation))
             current_dim = size
+
         self.learning_rate = learning_rate
+
 
     def forward(self, inputs):
         output = np.asarray(inputs, dtype=float)
+
         for layer in self.layers:
             output = layer.forward(output)
+
         return output
+
 
     def predict(self, inputs, verbose=0):
         return self.forward(inputs)
+
 
     def fit(self, X, Y, validation_split=0.0, epochs=1, batch_size=32, verbose=1):
         X = np.asarray(X, dtype=float)
@@ -136,8 +156,10 @@ class NeuralNetwork:
 
         if validation_split > 0.0:
             val_count = int(n_samples * validation_split)
+
             if val_count == 0:
                 raise ValueError('validation_split is too small for the dataset size')
+            
             permutation = np.random.permutation(n_samples)
             X = X[permutation]
             Y = Y[permutation]
@@ -145,6 +167,7 @@ class NeuralNetwork:
             Y_val = Y[:val_count]
             X_train = X[val_count:]
             Y_train = Y[val_count:]
+
         else:
             X_train = X
             Y_train = Y
@@ -157,6 +180,7 @@ class NeuralNetwork:
             Y_train = Y_train[permutation]
 
             timestep = 0
+
             for start in range(0, X_train.shape[0], batch_size):
                 end = start + batch_size
                 X_batch = X_train[start:end]
@@ -164,6 +188,7 @@ class NeuralNetwork:
                 predictions = self.forward(X_batch)
                 gradient = mse_loss_grad(predictions, Y_batch)
                 timestep += 1
+
                 for layer in reversed(self.layers):
                     gradient = layer.backward(gradient, self.learning_rate, timestep)
 
@@ -179,7 +204,7 @@ class NeuralNetwork:
             if verbose:
                 message = f'Epoch {epoch}/{epochs} - loss: {train_loss:.6f}'
                 if X_val is not None:
-                    message += f' - val_loss: {history['val_loss'][-1]:.6f}'
+                    message += f" - val_loss: {history['val_loss'][-1]:.6f}"
                 print(message)
 
         return History(history)
@@ -191,6 +216,8 @@ def create_model(
     activations=None,
     learning_rate=0.001
 ):
+    
     if activations is None:
         activations = ['relu', 'relu', 'relu', 'sigmoid']
+
     return NeuralNetwork(input_dim=input_dim, layer_sizes=layer_sizes, activations=activations, learning_rate=learning_rate)
